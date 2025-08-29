@@ -29,12 +29,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Apply verifyToken only to routes below
-router.use(verifyToken);
-
-router.post("/", upload.array("images", 5), createProduct);
 router.get("/", getProducts);
 router.get("/:id", getProductById);
+router.get("/shop/seller", getProducts);
+
+// Apply verifyToken only to routes below
+router.use(verifyToken);
+router.get("/shop/mine", getProducts);
+router.post("/", upload.array("images", 5), createProduct);
 router.put("/:id", updateProduct);
 router.delete("/:id", deleteProduct);
 
