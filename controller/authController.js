@@ -111,11 +111,18 @@ export const getLoggedInUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const userData = {
+      _id: existingUser._id,
+      name: existingUser.name,
+      email: existingUser.email,
+      image: existingUser.image || null,
+    };
+
     res.status(200).json({
       success: true,
       status: 200,
       message: "User fetched successfully",
-      user: existingUser,
+      user: userData,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -156,12 +163,19 @@ export const socialLogin = async (req, res) => {
     // Generate JWT token
     const token = generateToken(existingUser._id);
 
+    const userData = {
+      _id: existingUser._id,
+      name: existingUser.name,
+      email: existingUser.email,
+      image: existingUser.image || null,
+      token: token || null
+    };
+
     return res.status(200).json({
       message: "Login successful.",
       success: true,
       status: 200,
-      token: token || null,
-      user: existingUser
+      user: userData
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
