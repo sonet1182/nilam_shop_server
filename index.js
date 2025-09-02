@@ -6,8 +6,8 @@ import dotenv from 'dotenv';
 import userRoutes from './routes/userRoute.js';
 import authRoute from './routes/authRoute.js';
 import productRoutes from './routes/productRoutes.js';
-import messageRoutes from './routes/messageRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
 import http from "http";
 import { Server } from 'socket.io';
 import messageModel from './model/messageModel.js';
@@ -45,19 +45,23 @@ io.on("connection", (socket) => {
         io.to(productId).emit("updateBids", bidsByProduct[productId]);
     });
 
+    // Join conversation room
     socket.on("joinConversation", (conversationId) => {
         socket.join(conversationId);
+        console.log(`User joined conversation ${conversationId}`);
     });
 
-    socket.on("sendMessage", ({ conversationId, message }) => {
-        // Save to DB (async)
-        messageModel.create(message);
-
-        console.log("Message sent to conversation", conversationId, ":", message);
-
-        // Emit to conversation room
-        io.to(conversationId).emit("newMessage", message);
+    // Send message
+    socket.on("sendMessage", async ({ conversationId, message }) => {
+        try {
+            const newMsg = new messageModel(message);
+            await newMsg.save();
+            io.to(conversationId).emit("receiveMessage", newMsg);
+        } catch (err) {
+            console.error("Message save error:", err);
+        }
     });
+
 
     socket.on("disconnect", () => console.log("User disconnected:", socket.id));
 });
@@ -74,8 +78,9 @@ app.use('/api', userRoutes);
 app.use('/api/auth', authRoute);
 app.use("/api/products", productRoutes);
 app.use("/uploads", express.static("uploads"));
-app.use("/api/messages", messageRoutes);
+
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageRoutes);
 
 // MongoDB connection and server start
 mongoose

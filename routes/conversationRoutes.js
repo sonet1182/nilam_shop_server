@@ -1,27 +1,38 @@
 import express from "express";
-import mongoose from "mongoose";
-import conversationModel from "../model/conversationModel.js";
+import Conversation from "../model/conversationModel.js";
 
 const router = express.Router();
 
-// Create a new conversation
+// Create or get existing 1-to-1 conversation
 router.post("/", async (req, res) => {
+  const { senderId, receiverId } = req.body;
+
   try {
-    const { participants } = req.body;
-
-    if (!participants || participants.length < 2) {
-      return res.status(400).json({ message: "Participants array must have at least 2 users" });
-    }
-
-    const conversation = new conversationModel({
-      participants: participants.map((id) => new mongoose.Types.ObjectId(id)), // ✅ use 'new'
+    let convo = await Conversation.findOne({
+      participants: { $all: [senderId, receiverId] },
+      isGroup: false,
     });
 
-    const savedConversation = await conversation.save();
-    res.status(201).json(savedConversation);
+    if (!convo) {
+      convo = new Conversation({ participants: [senderId, receiverId] });
+      await convo.save();
+    }
+
+    res.json(convo);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error creating conversation", error: err.message });
+    res.status(500).json({ error: "Failed to create/get conversation" });
+  }
+});
+
+// Get all conversations of a user
+router.get("/:userId", async (req, res) => {
+  try {
+    const convos = await Conversation.find({
+      participants: { $in: [req.params.userId] },
+    }).populate("participants", "name image");
+    res.json(convos);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch conversations" });
   }
 });
 

@@ -1,11 +1,12 @@
-// models/Conversation.js
 import mongoose from "mongoose";
 
-const ConversationSchema = new mongoose.Schema(
+const conversationSchema = new mongoose.Schema(
   {
-    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // [user1, user2]
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // multiple users for group chat
+    isGroup: { type: Boolean, default: false },
+    groupName: { type: String },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Conversation", ConversationSchema);
+export default mongoose.model("Conversation", conversationSchema);
