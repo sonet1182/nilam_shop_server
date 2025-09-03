@@ -51,6 +51,18 @@ io.on("connection", (socket) => {
         console.log(`User joined conversation ${conversationId}`);
     });
 
+    // Send typing event
+    socket.on("typing", ({ conversationId, sender }) => {
+        console.log(`User is typing in conversation ${conversationId}`);
+        io.to(conversationId).emit("typing", { sender });
+        // socket.to(conversationId).emit("typing", { sender });
+    });
+
+    // Stop typing event
+    socket.on("stopTyping", ({ conversationId, sender }) => {
+        socket.to(conversationId).emit("stopTyping", { sender });
+    });
+
     // Send message
     socket.on("sendMessage", async ({ conversationId, message }) => {
         try {
