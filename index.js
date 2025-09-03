@@ -56,7 +56,8 @@ io.on("connection", (socket) => {
         try {
             const newMsg = new messageModel(message);
             await newMsg.save();
-            io.to(conversationId).emit("receiveMessage", newMsg);
+            const populatedMsg = await newMsg.populate("sender", "name image _id");
+            io.to(conversationId).emit("receiveMessage", populatedMsg);
         } catch (err) {
             console.error("Message save error:", err);
         }

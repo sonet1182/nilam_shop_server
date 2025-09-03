@@ -1,5 +1,7 @@
 import express from "express";
 import Conversation from "../model/conversationModel.js";
+import conversationModel from "../model/conversationModel.js";
+import messageModel from "../model/messageModel.js";
 
 const router = express.Router();
 
@@ -33,6 +35,31 @@ router.get("/:userId", async (req, res) => {
     res.json(convos);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch conversations" });
+  }
+});
+
+router.get("/details/:id", async (req, res) => {
+  try {
+    const conversation = await conversationModel.findById(req.params.id)
+      .populate("participants", "name image")
+      .lean();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const messages = await messageModel.find({ conversationId: req.params.id })
+      .populate("sender", "name image")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    res.json({
+      conversation,
+      messages,
+    });
+  } catch (err) {
+    console.error("Error fetching conversation details:", err);
+    res.status(500).json({ message: "Server error:", err });
   }
 });
 

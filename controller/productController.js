@@ -162,7 +162,7 @@ export const getProducts = async (req, res) => {
 // 📌 Get Single Product
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findOne({ _id: req.params.id }).populate("createdBy", "_id name email").exec();
+    const product = await Product.findOne({ _id: req.params.id }).populate("createdBy", "_id name image email").exec();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     res.status(200).json({
