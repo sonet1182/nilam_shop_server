@@ -11,6 +11,7 @@ import messageRoutes from './routes/messageRoutes.js';
 import http from "http";
 import { Server } from 'socket.io';
 import messageModel from './model/messageModel.js';
+import conversationModel from './model/conversationModel.js';
 
 dotenv.config();
 
@@ -54,13 +55,15 @@ io.on("connection", (socket) => {
     // Send typing event
     socket.on("typing", ({ conversationId, sender }) => {
         console.log(`User is typing in conversation ${conversationId}`);
-        io.to(conversationId).emit("typing", { sender });
+        console.log("sender:", sender);
+
+        io.to(conversationId).emit("typing", { conversationId, sender });
         // socket.to(conversationId).emit("typing", { sender });
     });
 
     // Stop typing event
     socket.on("stopTyping", ({ conversationId, sender }) => {
-        socket.to(conversationId).emit("stopTyping", { sender });
+        socket.to(conversationId).emit("stopTyping", { conversationId, sender });
     });
 
     // Send message
@@ -69,6 +72,10 @@ io.on("connection", (socket) => {
             const newMsg = new messageModel({ ...message, seenBy: [message.sender?._id] }); // sender has seen
             await newMsg.save();
             const populatedMsg = await newMsg.populate("sender", "name image _id");
+
+            await conversationModel.findByIdAndUpdate(conversationId, {
+                lastMessage: newMsg._id,
+            });
 
             // Emit message to everyone in conversation
             io.to(conversationId).emit("receiveMessage", populatedMsg);

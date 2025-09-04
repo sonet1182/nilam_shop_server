@@ -31,12 +31,20 @@ router.get("/:userId", async (req, res) => {
   try {
     const convos = await Conversation.find({
       participants: { $in: [req.params.userId] },
-    }).populate("participants", "name image");
+    })
+      .populate("participants", "name image")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name image _id" },
+      })
+      .sort({ updatedAt: -1 });
+
     res.json(convos);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch conversations" });
   }
 });
+
 
 router.get("/details/:id", async (req, res) => {
   try {
