@@ -66,15 +66,30 @@ io.on("connection", (socket) => {
     // Send message
     socket.on("sendMessage", async ({ conversationId, message }) => {
         try {
-            const newMsg = new messageModel(message);
+            const newMsg = new messageModel({ ...message, seenBy: [message.sender?._id] }); // sender has seen
             await newMsg.save();
             const populatedMsg = await newMsg.populate("sender", "name image _id");
+
+            // Emit message to everyone in conversation
             io.to(conversationId).emit("receiveMessage", populatedMsg);
         } catch (err) {
             console.error("Message save error:", err);
         }
     });
 
+    socket.on("seenMessage", async ({ conversationId, userId }) => {
+    try {
+      await messageModel.updateMany(
+        { conversationId, seenBy: { $ne: userId } },
+        { $push: { seenBy: userId } }
+      );
+
+      // Broadcast update info (no full messages)
+      io.to(conversationId).emit("seenUpdate", { userId });
+    } catch (err) {
+      console.error("Seen update error:", err);
+    }
+  });
 
     socket.on("disconnect", () => console.log("User disconnected:", socket.id));
 });

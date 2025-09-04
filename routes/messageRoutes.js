@@ -1,5 +1,6 @@
 import express from "express";
 import Message from "../model/messageModel.js";
+import messageModel from "../model/messageModel.js";
 
 const router = express.Router();
 
@@ -24,6 +25,19 @@ router.get("/:conversationId", async (req, res) => {
     res.json(messages);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+router.post("/seen", async (req, res) => {
+  const { conversationId, userId } = req.body;
+  try {
+    await messageModel.updateMany(
+      { conversationId, seenBy: { $ne: userId } },
+      { $push: { seenBy: userId } }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
