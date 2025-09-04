@@ -78,18 +78,25 @@ io.on("connection", (socket) => {
     });
 
     socket.on("seenMessage", async ({ conversationId, userId }) => {
-    try {
-      await messageModel.updateMany(
-        { conversationId, seenBy: { $ne: userId } },
-        { $push: { seenBy: userId } }
-      );
+        try {
+            const updated = await messageModel.updateMany(
+                { conversationId, seenBy: { $ne: userId } },
+                { $push: { seenBy: userId } }
+            );
 
-      // Broadcast update info (no full messages)
-      io.to(conversationId).emit("seenUpdate", { userId });
-    } catch (err) {
-      console.error("Seen update error:", err);
-    }
-  });
+            // Get which message IDs were updated
+            const updatedMessages = await messageModel.find({
+                conversationId,
+                seenBy: userId
+            }).select("_id");
+
+            const messageIds = updatedMessages.map((m) => m._id.toString());
+
+            io.to(conversationId).emit("seenUpdate", { userId, messageIds });
+        } catch (err) {
+            console.error("Seen update error:", err);
+        }
+    });
 
     socket.on("disconnect", () => console.log("User disconnected:", socket.id));
 });

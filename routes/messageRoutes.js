@@ -18,15 +18,25 @@ router.post("/", async (req, res) => {
 });
 
 // Get messages of conversation
+// routes/messageRoutes.js
 router.get("/:conversationId", async (req, res) => {
   try {
+    const { page = 1, limit = 10 } = req.query; // default page=1, 20 messages per page
+    const skip = (page - 1) * limit;
+
     const messages = await Message.find({ conversationId: req.params.conversationId })
+      .sort({ createdAt: -1 }) // newest first
+      .skip(skip)
+      .limit(parseInt(limit))
       .populate("sender", "name image");
-    res.json(messages);
+
+    res.json(messages.reverse()); // reverse so UI sees oldest → newest
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 });
+
 
 router.post("/seen", async (req, res) => {
   const { conversationId, userId } = req.body;
