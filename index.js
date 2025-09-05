@@ -24,6 +24,8 @@ const io = new Server(server, {
     cors: { origin: "*" },
 });
 
+app.set("io", io);
+
 // Store bids in memory (or database)
 let bidsByProduct = {};
 
@@ -52,6 +54,12 @@ io.on("connection", (socket) => {
         console.log(`User joined conversation ${conversationId}`);
     });
 
+    socket.on("joinUser", (userId) => {
+        socket.join(`user_${userId}`);
+        console.log(`User ${userId} joined room user_${userId}`);
+    });
+
+
     // Typing events
     socket.on("typing", ({ conversationId, sender }) => {
         io.to(conversationId).emit("typing", { conversationId, sender });
@@ -63,7 +71,7 @@ io.on("connection", (socket) => {
         io.to(`user_${sender._id}`).emit("stopTyping", { conversationId, sender });
     });
 
-   
+
 
     // Send message
     socket.on("sendMessage", async ({ conversationId, message }) => {
@@ -79,7 +87,7 @@ io.on("connection", (socket) => {
             // Emit message to everyone in conversation
             io.to(conversationId).emit("receiveMessage", populatedMsg);
 
-             // Also emit to all participants' user rooms
+            // Also emit to all participants' user rooms
             const convo = await conversationModel.findById(conversationId).populate("participants", "_id name image");
             convo.participants.forEach(p => {
                 io.to(`user_${p._id}`).emit("receiveMessage", populatedMsg);

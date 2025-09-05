@@ -6,6 +6,7 @@ import messageModel from "../model/messageModel.js";
 const router = express.Router();
 
 // Create or get existing 1-to-1 conversation
+// Create or get existing 1-to-1 conversation
 router.post("/", async (req, res) => {
   const { senderId, receiverId } = req.body;
 
@@ -15,9 +16,29 @@ router.post("/", async (req, res) => {
       isGroup: false,
     });
 
+    let isNew = false;
+
     if (!convo) {
       convo = new Conversation({ participants: [senderId, receiverId] });
       await convo.save();
+      isNew = true;
+    }
+
+    // ✅ Emit socket event if new conversation created
+    if (isNew) {
+      const io = req.app.get("io");
+
+      const populatedConvo = await Conversation.findById(convo._id)
+        .populate("participants", "name image")
+        .populate({
+          path: "lastMessage",
+          populate: { path: "sender", select: "name image _id" },
+        });
+
+      // Send to both participants (their user rooms)
+      convo.participants.forEach((p) => {
+        io.to(`user_${p}`).emit("newConversation", populatedConvo);
+      });
     }
 
     res.json(convo);
@@ -25,6 +46,7 @@ router.post("/", async (req, res) => {
     res.status(500).json({ error: "Failed to create/get conversation" });
   }
 });
+
 
 // Get all conversations of a user
 router.get("/:userId", async (req, res) => {
