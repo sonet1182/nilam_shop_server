@@ -52,19 +52,20 @@ io.on("connection", (socket) => {
         console.log(`User joined conversation ${conversationId}`);
     });
 
-    // Send typing event
+    // Typing events
     socket.on("typing", ({ conversationId, sender }) => {
-        console.log(`User is typing in conversation ${conversationId}`);
-        console.log("sender:", sender);
-
         io.to(conversationId).emit("typing", { conversationId, sender });
-        // socket.to(conversationId).emit("typing", { sender });
+        console.log('Typing event:', { conversationId, sender });
+        // also emit to sender's user room
+        io.to(`user_${sender._id}`).emit("typing", { conversationId, sender });
     });
 
-    // Stop typing event
     socket.on("stopTyping", ({ conversationId, sender }) => {
-        socket.to(conversationId).emit("stopTyping", { conversationId, sender });
+        io.to(conversationId).emit("stopTyping", { conversationId, sender });
+        io.to(`user_${sender._id}`).emit("stopTyping", { conversationId, sender });
     });
+
+   
 
     // Send message
     socket.on("sendMessage", async ({ conversationId, message }) => {
@@ -79,6 +80,12 @@ io.on("connection", (socket) => {
 
             // Emit message to everyone in conversation
             io.to(conversationId).emit("receiveMessage", populatedMsg);
+
+             // Also emit to all participants' user rooms
+            const convo = await conversationModel.findById(conversationId).populate("participants", "_id name image");
+            convo.participants.forEach(p => {
+                io.to(`user_${p._id}`).emit("receiveMessage", populatedMsg);
+            });
         } catch (err) {
             console.error("Message save error:", err);
         }
