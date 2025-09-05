@@ -21,9 +21,11 @@ export const register = async (req, res) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+    const randomValue = Math.random(0, 100).toString();
+    const image = 'https://avatar.iran.liara.run/public/' + randomValue;
 
     // Save user
-    const newUser = new user({ name, email, password: hashedPassword });
+    const newUser = new user({ name, email, password: hashedPassword, image });
     const savedUser = await newUser.save();
 
     // Generate token

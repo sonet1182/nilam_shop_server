@@ -55,8 +55,6 @@ io.on("connection", (socket) => {
     // Typing events
     socket.on("typing", ({ conversationId, sender }) => {
         io.to(conversationId).emit("typing", { conversationId, sender });
-        console.log('Typing event:', { conversationId, sender });
-        // also emit to sender's user room
         io.to(`user_${sender._id}`).emit("typing", { conversationId, sender });
     });
 
