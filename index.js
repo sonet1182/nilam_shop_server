@@ -41,9 +41,6 @@ io.on("connection", (socket) => {
     socket.on("placeBid", ({ productId, bid, user }) => {
         if (!bidsByProduct[productId]) bidsByProduct[productId] = [];
         bidsByProduct[productId].push({ ...bid, user });
-
-        console.log('Current bids for product', productId, ':', bidsByProduct[productId]);
-
         // Broadcast new bids to all users in room
         io.to(productId).emit("updateBids", bidsByProduct[productId]);
     });
@@ -59,7 +56,6 @@ io.on("connection", (socket) => {
         console.log(`User ${userId} joined room user_${userId}`);
     });
 
-
     // Typing events
     socket.on("typing", ({ conversationId, sender }) => {
         io.to(conversationId).emit("typing", { conversationId, sender });
@@ -70,8 +66,6 @@ io.on("connection", (socket) => {
         io.to(conversationId).emit("stopTyping", { conversationId, sender });
         io.to(`user_${sender._id}`).emit("stopTyping", { conversationId, sender });
     });
-
-
 
     // Send message
     socket.on("sendMessage", async ({ conversationId, message }) => {
@@ -123,7 +117,7 @@ io.on("connection", (socket) => {
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
 app.get("/api/hello", (req, res) => {
     res.json({ message: "Hello from Express!" });
