@@ -32,6 +32,12 @@ let bidsByProduct = {};
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
+    socket.on("userOnline", (userId) => {
+        socket.userId = userId;
+        onlineUsers.add(userId);   // ✅ Add user to set
+        io.emit("onlineUsers", getAllOnlineUsers());
+    });
+
     socket.on("joinProductRoom", (productId) => {
         socket.join(productId);
         // Send existing bids to new user
@@ -41,7 +47,6 @@ io.on("connection", (socket) => {
     socket.on("placeBid", ({ productId, bid, user }) => {
         if (!bidsByProduct[productId]) bidsByProduct[productId] = [];
         bidsByProduct[productId].push({ ...bid, user });
-        // Broadcast new bids to all users in room
         io.to(productId).emit("updateBids", bidsByProduct[productId]);
     });
 
@@ -112,8 +117,22 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("disconnect", () => console.log("User disconnected:", socket.id));
+    // When user disconnects
+    socket.on("disconnect", () => {
+        removeUser(socket.userId);
+        io.emit("onlineUsers", getAllOnlineUsers());
+    });
 });
+
+let onlineUsers = new Set();
+
+function getAllOnlineUsers() {
+    return Array.from(onlineUsers);
+}
+
+function removeUser(userId) {
+    onlineUsers.delete(userId);
+}
 
 // Middleware
 app.use(bodyParser.json());
