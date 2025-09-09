@@ -75,6 +75,11 @@ const productSchema = new mongoose.Schema({
     default: "piece",
   },
   tags: [String],
+  highestBid: {
+    amount: { type: Number, default: 0 },
+    bidderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    biddingTime: { type: Date, default: null } // ⬅ Store the time of the highest bid
+  }
 }, { timestamps: true });
 
 export default mongoose.model("Product", productSchema);

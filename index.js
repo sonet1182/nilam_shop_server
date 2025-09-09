@@ -12,6 +12,8 @@ import http from "http";
 import { Server } from 'socket.io';
 import messageModel from './model/messageModel.js';
 import conversationModel from './model/conversationModel.js';
+import bidModel from './model/bidModel.js';
+import productModel from './model/productModel.js';
 
 dotenv.config();
 
@@ -38,16 +40,50 @@ io.on("connection", (socket) => {
         io.emit("onlineUsers", getAllOnlineUsers());
     });
 
-    socket.on("joinProductRoom", (productId) => {
+    socket.on("joinProductRoom", async (productId) => {
         socket.join(productId);
-        // Send existing bids to new user
-        socket.emit("updateBids", bidsByProduct[productId] || []);
+
+        // If memory cache empty → load from DB
+        if (!bidsByProduct[productId]) {
+            const bids = await bidModel
+                .find({ productId })
+                .sort({ amount: -1 })
+                .populate("user", "name image _id");
+
+            bidsByProduct[productId] = bids;
+        }
+
+        socket.emit("updateBids", bidsByProduct[productId]);
     });
 
-    socket.on("placeBid", ({ productId, bid, user }) => {
-        if (!bidsByProduct[productId]) bidsByProduct[productId] = [];
-        bidsByProduct[productId].push({ ...bid, user });
-        io.to(productId).emit("updateBids", bidsByProduct[productId]);
+    // socket.on("placeBid", ({ productId, bid, user }) => {
+    //     if (!bidsByProduct[productId]) bidsByProduct[productId] = [];
+    //     bidsByProduct[productId].push({ ...bid, user });
+    //     console.log('bidding Data', bidsByProduct[productId]);
+    //     io.to(productId).emit("updateBids", bidsByProduct[productId]);
+    // });
+
+    socket.on("placeBid", async ({ productId, bid, user }) => {
+        try {
+            const newBid = await bidModel.create({
+                productId,
+                user: user._id,
+                amount: bid.price,
+            });
+
+            // Update highest bid in Product collection (optional, for quick reference)
+            await productModel.findByIdAndUpdate(productId, {
+                $max: { "highestBid.amount": bid.amount },
+                $set: { "highestBid.bidderId": user._id, "highestBid.biddingTime": new Date() }
+            });
+
+            // Emit new bid to all users in product room
+            const bids = await bidModel.find({ productId }).sort({ amount: -1 }).populate("user", "name image _id");
+            console.log('bidding Data', bids);
+            io.to(productId).emit("updateBids", bids);
+        } catch (err) {
+            console.error("Place bid error:", err);
+        }
     });
 
     // Join conversation room
@@ -100,7 +136,7 @@ io.on("connection", (socket) => {
         try {
             const updated = await messageModel.updateMany(
                 { conversationId, seenBy: { $ne: userId } },
-                { $push: { seenBy: userId } }
+                { $push: { seenBy: userId, seenData: { id: userId, at: new Date() } } }
             );
 
             // Get which message IDs were updated

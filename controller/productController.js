@@ -1,6 +1,7 @@
 import Product from "../model/productModel.js";
 import fs from "fs";
 import path from "path";
+import bidModel from "../model/bidModel.js";
 
 // Multer দিয়ে প্রাপ্ত images ফাইল নাম বা path গুলো req.files থেকে পাবেন
 export const createProduct = async (req, res) => {
@@ -100,7 +101,7 @@ export const getProducts = async (req, res) => {
 
     // Fetch products with pagination
     const products = await Product.find(query)
-      .populate("createdBy", "name email")
+      .populate("createdBy", "name email image")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -244,5 +245,20 @@ export const deleteProduct = async (req, res) => {
     res.status(200).json({ message: "Product deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+
+// Example Express route
+export const productBids = async (req, res) => {
+  try {
+    const bids = await bidModel
+      .find({ productId: req.params.id })
+      .sort({ amount: -1 })
+      .populate("user", "name image _id");
+
+    res.json(bids);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch bids" });
   }
 };

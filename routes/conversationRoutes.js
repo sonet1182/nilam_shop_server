@@ -24,22 +24,32 @@ router.post("/", async (req, res) => {
 
 // Get all conversations of a user
 router.get("/:userId", async (req, res) => {
-  try {
-    const convos = await Conversation.find({
-      participants: { $in: [req.params.userId] },
-    })
-      .populate("participants", "name image")
-      .populate({
-        path: "lastMessage",
-        populate: { path: "sender", select: "name image _id" },
-      })
-      .sort({ updatedAt: -1 });
+  const { userId } = req.params;
 
-    res.json(convos);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch conversations" });
-  }
+  const convos = await conversationModel
+    .find({ participants: userId })
+    .populate("participants", "name image")
+    .populate({
+      path: "lastMessage",
+      populate: { path: "sender", select: "name image _id" },
+    })
+    .lean();
+
+  // compute unseen count for each convo
+  const withCounts = await Promise.all(
+    convos.map(async (c) => {
+      const unseen = await messageModel.countDocuments({
+        conversationId: c._id,
+        sender: { $ne: userId },
+        seenBy: { $ne: userId },
+      });
+      return { ...c, unseenCount: unseen };
+    })
+  );
+
+  res.json(withCounts);
 });
+
 
 
 router.get("/details/:id", async (req, res) => {

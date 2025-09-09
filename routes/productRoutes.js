@@ -6,6 +6,7 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
+  productBids,
 } from "../controller/productController.js";
 import { verifyToken } from "../controller/authController.js";
 
@@ -32,6 +33,7 @@ const upload = multer({ storage });
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 router.get("/shop/seller", getProducts);
+router.get("/:id/bids", productBids);
 
 // Apply verifyToken only to routes below
 router.use(verifyToken);

@@ -84,15 +84,65 @@ router.get("/:conversationId", async (req, res) => {
 
 router.post("/seen", async (req, res) => {
   const { conversationId, userId } = req.body;
+
   try {
+    const now = new Date();
+
     await messageModel.updateMany(
       { conversationId, seenBy: { $ne: userId } },
-      { $push: { seenBy: userId } }
+      {
+        $addToSet: { seenBy: userId }, // prevent duplicate user
+        $push: { seenData: { id: userId, at: new Date() } } // push to array correctly
+      }
     );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.get("/unseen/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // First, get all conversation IDs where the user is a participant
+    const conversations = await conversationModel.find(
+      { participants: userId },
+      { _id: 1 }
+    );
+
+    const conversationIds = conversations.map(c => c._id);
+
+    // Aggregate unseen messages per conversation
+    const unseenCounts = await messageModel.aggregate([
+      {
+        $match: {
+          conversationId: { $in: conversationIds },
+          sender: { $ne: userId },
+          seenBy: { $not: { $elemMatch: { $eq: userId } } },
+        },
+      },
+      {
+        $group: {
+          _id: "$conversationId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Convert to object { conversationId: count }
+    const result = {};
+    unseenCounts.forEach((item) => {
+      result[item._id] = item.count;
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to get unseen counts" });
+  }
+});
+
+
 
 export default router;
