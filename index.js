@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import cors from "cors";
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoute.js';
+import adminUserRoutes from './routes/admin/userRoutes.js';
 import authRoute from './routes/authRoute.js';
 import productRoutes from './routes/productRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
@@ -14,6 +15,7 @@ import messageModel from './model/messageModel.js';
 import conversationModel from './model/conversationModel.js';
 import bidModel from './model/bidModel.js';
 import productModel from './model/productModel.js';
+import { isAdmin } from './controller/authController.js';
 
 dotenv.config();
 
@@ -43,25 +45,17 @@ io.on("connection", (socket) => {
     socket.on("joinProductRoom", async (productId) => {
         socket.join(productId);
 
-        // If memory cache empty → load from DB
-        if (!bidsByProduct[productId]) {
-            const bids = await bidModel
-                .find({ productId })
-                .sort({ amount: -1 })
-                .populate("user", "name image _id");
+        const bids = await bidModel
+            .find({ productId })
+            .sort({ amount: -1 })
+            .populate("user", "name image _id");
 
-            bidsByProduct[productId] = bids;
-        }
+        bidsByProduct[productId] = bids;
+
 
         socket.emit("updateBids", bidsByProduct[productId]);
     });
 
-    // socket.on("placeBid", ({ productId, bid, user }) => {
-    //     if (!bidsByProduct[productId]) bidsByProduct[productId] = [];
-    //     bidsByProduct[productId].push({ ...bid, user });
-    //     console.log('bidding Data', bidsByProduct[productId]);
-    //     io.to(productId).emit("updateBids", bidsByProduct[productId]);
-    // });
 
     socket.on("placeBid", async ({ productId, bid, user }) => {
         try {
@@ -185,6 +179,9 @@ app.use("/uploads", express.static("uploads"));
 
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
+
+//Admin Routes
+app.use("/api/admin/users", isAdmin, adminUserRoutes);
 
 // MongoDB connection and server start
 mongoose

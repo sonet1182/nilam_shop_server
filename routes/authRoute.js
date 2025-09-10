@@ -1,5 +1,5 @@
 import express from 'express';
-import { getLoggedInUser, login, logout, register, sellerProfile, socialLogin, verifyToken } from '../controller/authController.js';
+import { getLoggedInUser, isAdmin, login, logout, register, sellerProfile, socialLogin, verifyToken } from '../controller/authController.js';
 
 const router = express.Router();
 
@@ -9,6 +9,7 @@ router.post("/social-login", socialLogin);
 router.post("/logout", verifyToken, logout); // Logout protected
 
 router.get("/me", verifyToken, getLoggedInUser);
+router.get("/admin/me", isAdmin, getLoggedInUser);
 
 router.get("/seller/:id", sellerProfile); // Get seller profile by ID
 

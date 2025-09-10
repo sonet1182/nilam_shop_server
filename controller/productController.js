@@ -232,7 +232,7 @@ export const updateProduct = async (req, res) => {
 // 📌 Delete Product
 export const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findOneAndDelete({ _id: req.params.id, createdBy: req.userId });
+    const product = await Product.findOneAndDelete({ _id: req.params.id });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     product.images.forEach((img) => {
@@ -242,7 +242,11 @@ export const deleteProduct = async (req, res) => {
       }
     });
 
-    res.status(200).json({ message: "Product deleted successfully" });
+    res.status(200).json({
+      success: true,
+      status: 200,
+      message: "Product deleted successfully",
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

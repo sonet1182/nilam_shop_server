@@ -3,14 +3,14 @@ import user from "../model/userModel.js";
 import bcrypt from "bcryptjs";
 
 // 🛠️ Helper: Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+const generateToken = (user) => {
+  return jwt.sign({ id:user._id, role: user.role ?? "user" }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 // 📝 REGISTER
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     // Check if user already exists
     const existingUser = await user.findOne({ email });
@@ -21,15 +21,15 @@ export const register = async (req, res) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const randomValue = Math.random(0, 100).toString();
+    const randomValue = Math.floor(Math.random() * 101);
     const image = 'https://avatar.iran.liara.run/public/' + randomValue;
 
     // Save user
-    const newUser = new user({ name, email, password: hashedPassword, image });
+    const newUser = new user({ name, email, password: hashedPassword, image, role: role ?? "user" });
     const savedUser = await newUser.save();
 
     // Generate token
-    const token = generateToken(savedUser._id);
+    const token = generateToken(savedUser);
 
     return res.status(201).json({
       message: "User registered successfully.",
@@ -61,7 +61,15 @@ export const login = async (req, res) => {
     }
 
     // Generate token
-    const token = generateToken(existingUser._id);
+    const token = generateToken(existingUser);
+
+    res.cookie("token", token, {
+      httpOnly: true,   // cannot be accessed by JS
+      secure: process.env.NODE_ENV === "production", // only over HTTPS in prod
+      sameSite: "lax",
+      maxAge: parseInt(process.env.COOKIE_MAX_AGE, 10),
+    });
+
 
     return res.status(200).json({
       message: "Login successful.",
@@ -102,6 +110,28 @@ export const verifyToken = (req, res, next) => {
   });
 };
 
+// Auth middleware
+export const isAdmin = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "No token provided. +" });
+
+  if (tokenBlacklist.includes(token)) {
+    return res.status(401).json({ message: "Token has been logged out." });
+  }
+
+  try {
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) return res.status(401).json({ message: "Invalid token." });
+      // return decoded;
+      if (decoded.role !== "admin") return res.status(403).json({ message: "Forbidden", decoded });
+      req.userId = decoded.id;
+      next();
+    });
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};
+
 export const getLoggedInUser = async (req, res) => {
   try {
     const userId = req.userId; // verifyToken middleware থেকে আসবে
@@ -118,6 +148,7 @@ export const getLoggedInUser = async (req, res) => {
       name: existingUser.name,
       email: existingUser.email,
       image: existingUser.image || null,
+      role: existingUser.role
     };
 
     res.status(200).json({
@@ -163,7 +194,7 @@ export const socialLogin = async (req, res) => {
     }
 
     // Generate JWT token
-    const token = generateToken(existingUser._id);
+    const token = generateToken(existingUser);
 
     const userData = {
       _id: existingUser._id,
@@ -195,7 +226,7 @@ export const sellerProfile = async (req, res) => {
     if (!existingUser) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     const userData = {
       _id: existingUser._id,
       name: existingUser.name,
