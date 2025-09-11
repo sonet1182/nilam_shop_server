@@ -5,6 +5,7 @@ import cors from "cors";
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoute.js';
 import adminUserRoutes from './routes/admin/userRoutes.js';
+import adminDashboardRoutes from './routes/admin/dashboardRoutes.js';
 import authRoute from './routes/authRoute.js';
 import productRoutes from './routes/productRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
@@ -36,11 +37,17 @@ let bidsByProduct = {};
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
-    socket.on("userOnline", (userId) => {
-        socket.userId = userId;
-        onlineUsers.add(userId);   // ✅ Add user to set
-        io.emit("onlineUsers", getAllOnlineUsers());
-    });
+    
+
+socket.on("userOnline", (user) => {
+    if (!user || !user._id) return;
+
+    socket.userId = user._id;
+    onlineUsers.set(user._id, user); // store full user object
+
+    // Broadcast array of full users
+    io.emit("onlineUsers", Array.from(onlineUsers.values()));
+});
 
     socket.on("joinProductRoom", async (productId) => {
         socket.join(productId);
@@ -154,10 +161,11 @@ io.on("connection", (socket) => {
     });
 });
 
-let onlineUsers = new Set();
+let onlineUsers = new Map(); // store userId => userData
+
 
 function getAllOnlineUsers() {
-    return Array.from(onlineUsers);
+    return Array.from(onlineUsers.values());
 }
 
 function removeUser(userId) {
@@ -182,6 +190,7 @@ app.use("/api/messages", messageRoutes);
 
 //Admin Routes
 app.use("/api/admin/users", isAdmin, adminUserRoutes);
+app.use("/api/admin/dashboard", isAdmin, adminDashboardRoutes);
 
 // MongoDB connection and server start
 mongoose

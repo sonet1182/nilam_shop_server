@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 
 // 🛠️ Helper: Generate JWT Token
 const generateToken = (user) => {
-  return jwt.sign({ id:user._id, role: user.role ?? "user" }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ id: user._id, role: user.role ?? "user" }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 // 📝 REGISTER
@@ -70,7 +70,6 @@ export const login = async (req, res) => {
       maxAge: parseInt(process.env.COOKIE_MAX_AGE, 10),
     });
 
-
     return res.status(200).json({
       message: "Login successful.",
       success: true,
@@ -91,7 +90,18 @@ export const logout = (req, res) => {
   if (token) {
     tokenBlacklist.push(token);
   }
-  res.status(200).json({ message: "Logged out successfully." });
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/", // must match the cookie's path
+    maxAge: 0, // expire immediately
+  });
+  res.status(200).json({
+    success: true,
+    status: 200,
+    message: "User Logged out successfully",
+  });
 };
 
 // 🛡️ Middleware to protect routes
