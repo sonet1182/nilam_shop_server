@@ -6,8 +6,10 @@ import dotenv from 'dotenv';
 import userRoutes from './routes/userRoute.js';
 import adminUserRoutes from './routes/admin/userRoutes.js';
 import adminDashboardRoutes from './routes/admin/dashboardRoutes.js';
+import adminCategoryRoutes from './routes/admin/categoryRoutes.js';
 import authRoute from './routes/authRoute.js';
 import productRoutes from './routes/productRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import http from "http";
@@ -199,6 +201,8 @@ app.get("/api/hello", (req, res) => {
 app.use('/api', userRoutes);
 app.use('/api/auth', authRoute);
 app.use("/api/products", productRoutes);
+app.use("/api/categories", categoryRoutes);
+
 app.use("/uploads", express.static("uploads"));
 
 app.use("/api/conversations", conversationRoutes);
@@ -207,6 +211,7 @@ app.use("/api/messages", messageRoutes);
 //Admin Routes
 app.use("/api/admin/users", isAdmin, adminUserRoutes);
 app.use("/api/admin/dashboard", isAdmin, adminDashboardRoutes);
+app.use("/api/admin/categories", isAdmin, adminCategoryRoutes);
 
 // MongoDB connection and server start
 mongoose
