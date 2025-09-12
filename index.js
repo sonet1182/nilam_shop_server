@@ -37,17 +37,15 @@ let bidsByProduct = {};
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
-    
+    socket.on("userOnline", (user) => {
+        if (!user || !user._id) return;
 
-socket.on("userOnline", (user) => {
-    if (!user || !user._id) return;
+        socket.userId = user._id;
+        onlineUsers.set(user._id, user); // store full user object
 
-    socket.userId = user._id;
-    onlineUsers.set(user._id, user); // store full user object
-
-    // Broadcast array of full users
-    io.emit("onlineUsers", Array.from(onlineUsers.values()));
-});
+        // Broadcast array of full users
+        io.emit("onlineUsers", Array.from(onlineUsers.values()));
+    });
 
     socket.on("joinProductRoom", async (productId) => {
         socket.join(productId);
@@ -73,10 +71,28 @@ socket.on("userOnline", (user) => {
             });
 
             // Update highest bid in Product collection (optional, for quick reference)
-            await productModel.findByIdAndUpdate(productId, {
-                $max: { "highestBid.amount": bid.amount },
-                $set: { "highestBid.bidderId": user._id, "highestBid.biddingTime": new Date() }
+            await productModel.findOneAndUpdate(
+                { _id: productId },
+                {
+                    $inc: { totalBids: 1 },
+                    $max: { "highestBid.amount": bid.amount },
+                },
+                { new: true }
+            ).then(async (product) => {
+                // if this bid actually became the highest, update bidder + time
+                if (product.highestBid.amount === bid.amount) {
+                    await productModel.updateOne(
+                        { _id: productId },
+                        {
+                            $set: {
+                                "highestBid.bidderId": user._id,
+                                "highestBid.biddingTime": new Date(),
+                            },
+                        }
+                    );
+                }
             });
+
 
             // Emit new bid to all users in product room
             const bids = await bidModel.find({ productId }).sort({ amount: -1 }).populate("user", "name image _id");

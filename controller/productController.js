@@ -124,6 +124,18 @@ export const getProducts = async (req, res) => {
       current_page: page,
     };
 
+    // 🔹 Get normalized counts from bids collection
+    const productIds = products.map((p) => p._id);
+    const bidCounts = await bidModel.aggregate([
+      { $match: { productId: { $in: productIds } } },
+      { $group: { _id: "$productId", count: { $sum: 1 } } },
+    ]);
+
+    const bidCountMap = bidCounts.reduce((acc, b) => {
+      acc[b._id.toString()] = b.count;
+      return acc;
+    }, {});
+
     const formattedProducts = products.map((product) => ({
       id: product._id,
       name: product.name,
@@ -144,6 +156,9 @@ export const getProducts = async (req, res) => {
       stock: product.stock ?? null,
       unit: product.unit ?? null,
       tags: product.tags ?? null,
+      // ⚡ Both values:
+      totalBidsCached: product.totalBids ?? 0,            // denormalized
+      totalBids: bidCountMap[product._id.toString()] || 0, // normalized
     }));
 
     res.status(200).json({
@@ -166,6 +181,9 @@ export const getProductById = async (req, res) => {
     const product = await Product.findOne({ _id: req.params.id }).populate("createdBy", "_id name image email").exec();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
+    // 🔹 Get normalized bid count
+    const realBidCount = await bidModel.countDocuments({ productId: product._id });
+
     res.status(200).json({
       id: product._id,
       name: product.name,
@@ -186,6 +204,7 @@ export const getProductById = async (req, res) => {
       stock: product.stock ?? null,
       unit: product.unit ?? null,
       tags: product.tags ?? null,
+      totalBids: realBidCount ?? 0,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
