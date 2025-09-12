@@ -1,3 +1,4 @@
+import slugify from "slugify";
 import Category from "../../model/categoryModel.js";
 
 // ✅ Create Category
@@ -80,3 +81,17 @@ export const deleteCategory = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const updateSlugs = async () => {
+  const categories = await Category.find();
+  for (let cat of categories) {
+    if (!cat.slug) {
+      cat.slug = slugify(cat.name, { lower: true, strict: true });
+      await cat.save();
+    }
+  }
+  console.log("✅ Slugs updated for all categories!");
+};
+
+updateSlugs();
+

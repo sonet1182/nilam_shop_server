@@ -2,6 +2,7 @@ import Product from "../model/productModel.js";
 import fs from "fs";
 import path from "path";
 import bidModel from "../model/bidModel.js";
+import categoryModel from "../model/categoryModel.js";
 
 // Multer দিয়ে প্রাপ্ত images ফাইল নাম বা path গুলো req.files থেকে পাবেন
 export const createProduct = async (req, res) => {
@@ -23,7 +24,7 @@ export const createProduct = async (req, res) => {
       tags,
     } = req.body;
 
-    if (!name || !price || !description || !bidStart || !bidEnd) {
+    if (!name || !price || !description || !bidStart || !bidEnd || !category) {
       return res.status(400).json({ message: "Required fields are missing." });
     }
 
@@ -33,6 +34,17 @@ export const createProduct = async (req, res) => {
 
     // multer files to array of filenames
     const images = req.files.map((file) => file.filename);
+
+    // Get the full category path (parent chain)
+    const buildCategoryPath = async (catId) => {
+      const cat = await categoryModel.findById(catId);
+      if (!cat) return [];
+      if (!cat.parent) return [cat._id]; // root category
+      const parentPath = await buildCategoryPath(cat.parent);
+      return [...parentPath, cat._id];
+    };
+
+    const categoryPath = await buildCategoryPath(category);
 
     const newProduct = new Product({
       name,
@@ -44,13 +56,14 @@ export const createProduct = async (req, res) => {
       deliveryCost: deliveryCost || 0,
       location: location || "",
       phone: phone || "",
-      category: category || "",
-      condition: condition || "",
+      category,
+      categoryPath,
+      condition: condition || "new",
       stock: stock ? parseInt(stock) : 0,
-      unit: unit || "",
-      tags: tags ? tags.split(",") : [], // assuming comma-separated tags
+      unit: unit || "piece",
+      tags: tags ? tags.split(",") : [],
       images,
-      createdBy: req.userId ?? 1, // fallback user
+      createdBy: req.userId ?? 1,
     });
 
     const savedProduct = await newProduct.save();
@@ -68,6 +81,7 @@ export const getProducts = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || "";
+    const categoryName = req.query.category || "";
     const myshop = req.query.myshop;
     const seller_id = req.query.seller_id;
 
@@ -75,8 +89,6 @@ export const getProducts = async (req, res) => {
     if (myshop && !userId) {
       return res.status(401).json({ error: "Unauthorized: user not logged in" });
     }
-
-    console.log(req.query.myshop, userId);
 
     // Build search condition
     let query = {};
@@ -96,12 +108,39 @@ export const getProducts = async (req, res) => {
       ];
     }
 
+    console.log('categoryName:', categoryName);
+
+    // 🔹 Category filter using categoryPath
+    if (categoryName) {
+      const category = await categoryModel.findOne({ slug: categoryName }).exec();
+      if (category) {
+        query.$or = [
+          { category: category._id },
+          { categoryPath: category._id } // matches parent categories
+        ];
+      } else {
+        // category not found → return empty result
+        return res.status(200).json({
+          total: 0,
+          page,
+          totalPages: 0,
+          links: {},
+          data: [],
+        });
+      }
+    }
+
     // Calculate how many documents to skip
     const skip = (page - 1) * limit;
 
     // Fetch products with pagination
     const products = await Product.find(query)
       .populate("createdBy", "name email image")
+      .populate("category", "name slug icon")
+      .populate({
+        path: "categoryPath",
+        select: "name slug icon", // get name + icon for each parent category
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -136,30 +175,40 @@ export const getProducts = async (req, res) => {
       return acc;
     }, {});
 
-    const formattedProducts = products.map((product) => ({
-      id: product._id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      images: product.images,
-      thumbnail: product.images && product.images.length > 0 ? product.images[0] : null,
-      createdBy: product.createdBy ?? null,
-      createdAt: product.createdAt ?? null,
-      bidStart: product.bidStart ?? null,
-      bidEnd: product.bidEnd ?? null,
-      productType: product.productType ?? null,
-      deliveryCost: product.deliveryCost ?? null,
-      location: product.location ?? null,
-      phone: product.phone ?? null,
-      category: product.category ?? null,
-      condition: product.condition ?? null,
-      stock: product.stock ?? null,
-      unit: product.unit ?? null,
-      tags: product.tags ?? null,
-      // ⚡ Both values:
-      totalBidsCached: product.totalBids ?? 0,            // denormalized
-      totalBids: bidCountMap[product._id.toString()] || 0, // normalized
-    }));
+    const formattedProducts = products.map((product) => {
+      const categoryBreadcrumb = product.categoryPath.map(c => ({
+        id: c._id,
+        name: c.name,
+        slug: c.slug,
+        icon: c.icon || "🛒",
+      }));
+
+      return {
+        id: product._id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        images: product.images,
+        thumbnail: product.images && product.images.length > 0 ? product.images[0] : null,
+        createdBy: product.createdBy ?? null,
+        createdAt: product.createdAt ?? null,
+        bidStart: product.bidStart ?? null,
+        bidEnd: product.bidEnd ?? null,
+        productType: product.productType ?? null,
+        deliveryCost: product.deliveryCost ?? null,
+        location: product.location ?? null,
+        phone: product.phone ?? null,
+        category: product.category ?? null,
+        condition: product.condition ?? null,
+        stock: product.stock ?? null,
+        unit: product.unit ?? null,
+        tags: product.tags ?? null,
+        // ⚡ Both values:
+        totalBidsCached: product.totalBids ?? 0,            // denormalized
+        totalBids: bidCountMap[product._id.toString()] || 0, // normalized
+        categoryBreadcrumb,
+      }
+    });
 
     res.status(200).json({
       total,
@@ -178,11 +227,25 @@ export const getProducts = async (req, res) => {
 // 📌 Get Single Product
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findOne({ _id: req.params.id }).populate("createdBy", "_id name image email").exec();
+    const product = await Product.findOne({ _id: req.params.id })
+      .populate("createdBy", "_id name image email")
+      .populate("category", "name slug icon")
+      .populate({
+        path: "categoryPath",
+        select: "name slug icon",
+      }).exec();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     // 🔹 Get normalized bid count
     const realBidCount = await bidModel.countDocuments({ productId: product._id });
+
+    // 🔹 Build clickable breadcrumb array using populated categoryPath
+    const categoryBreadcrumb = product.categoryPath.map(c => ({
+      id: c._id,
+      name: c.name,
+      slug: c.slug,
+      icon: c.icon || "🛒",
+    }));
 
     res.status(200).json({
       id: product._id,
@@ -205,6 +268,7 @@ export const getProductById = async (req, res) => {
       unit: product.unit ?? null,
       tags: product.tags ?? null,
       totalBids: realBidCount ?? 0,
+      categoryBreadcrumb,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

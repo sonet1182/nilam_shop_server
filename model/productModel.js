@@ -56,10 +56,8 @@ const productSchema = new mongoose.Schema({
       return this.productType === "takeaway" || this.productType === "both";
     },
   },
-  category: {
-    type: String,
-    default: "General",
-  },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
+  categoryPath: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }], // store parent hierarchy
   condition: {
     type: String,
     enum: ["new", "used", "refurbished"],
