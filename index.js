@@ -195,6 +195,9 @@ function removeUser(userId) {
 app.use(bodyParser.json());
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
+app.get("/", (req, res) => {
+  res.send("Server is running 🚀");
+});
 app.get("/api/hello", (req, res) => {
     res.json({ message: "Hello from Express!" });
 });
