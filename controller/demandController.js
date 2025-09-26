@@ -1,30 +1,28 @@
-import Product from "../model/productModel.js";
+import Demand from "../model/demandModel.js";
 import fs from "fs";
 import path from "path";
 import bidModel from "../model/bidModel.js";
 import categoryModel from "../model/categoryModel.js";
+import offerModel from "../model/offerModel.js";
 
 // Multer দিয়ে প্রাপ্ত images ফাইল নাম বা path গুলো req.files থেকে পাবেন
-export const createProduct = async (req, res) => {
+export const create = async (req, res) => {
   try {
     const {
       name,
       price,
       description,
-      bidStart,
       bidEnd,
-      productType,
-      deliveryCost,
       location,
       phone,
       category,
       condition,
-      stock,
+      quantity,
       unit,
       tags,
     } = req.body;
 
-    if (!name || !price || !description || !bidStart || !bidEnd || !category) {
+    if (!name || !price || !description || !bidEnd || !category) {
       return res.status(400).json({ message: "Required fields are missing." });
     }
 
@@ -46,36 +44,33 @@ export const createProduct = async (req, res) => {
 
     const categoryPath = await buildCategoryPath(category);
 
-    const newProduct = new Product({
+    const newDemand = new Demand({
       name,
       price,
       description,
-      bidStart: new Date(bidStart),
       bidEnd: new Date(bidEnd),
-      productType,
-      deliveryCost: deliveryCost || 0,
       location: location || "",
       phone: phone || "",
       category,
       categoryPath,
       condition: condition || "new",
-      stock: stock ? parseInt(stock) : 0,
+      quantity: quantity ? parseInt(quantity) : 0,
       unit: unit || "piece",
       tags: tags ? tags.split(",") : [],
       images,
       createdBy: req.userId ?? 1,
     });
 
-    const savedProduct = await newProduct.save();
+    const savedProduct = await newDemand.save();
 
-    res.status(201).json({ message: "Product created successfully", product: savedProduct });
+    res.status(201).json({ message: "Demand created successfully", product: savedProduct });
   } catch (error) {
-    console.error("Error creating product:", error);
+    console.error("Error creating demand:", error);
     res.status(500).json({ error: error.message });
   }
 };
 // 📌 Get All Products
-export const getProducts = async (req, res) => {
+export const index = async (req, res) => {
   try {
     // Get page & limit from query params (default: page=1, limit=10)
     const page = parseInt(req.query.page) || 1;
@@ -136,7 +131,7 @@ export const getProducts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Fetch products with pagination
-    const products = await Product.find(query)
+    const demands = await Demand.find(query)
       .populate("createdBy", "name email image")
       .populate("category", "name slug icon")
       .populate({
@@ -148,8 +143,8 @@ export const getProducts = async (req, res) => {
       .limit(limit)
       .exec();
 
-    // ✅ Count only filtered products
-    const total = await Product.countDocuments(query);
+    // ✅ Count only filtered demands
+    const total = await Demand.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
 
     // Build page links (preserve search param if present)
@@ -166,19 +161,19 @@ export const getProducts = async (req, res) => {
     };
 
     // 🔹 Get normalized counts from bids collection
-    const productIds = products.map((p) => p._id);
-    const bidCounts = await bidModel.aggregate([
-      { $match: { productId: { $in: productIds } } },
-      { $group: { _id: "$productId", count: { $sum: 1 } } },
+    const demandIds = demands.map((p) => p._id);
+    const offerCounts = await offerModel.aggregate([
+      { $match: { demandId: { $in: demandIds } } },
+      { $group: { _id: "$demandId", count: { $sum: 1 } } },
     ]);
 
-    const bidCountMap = bidCounts.reduce((acc, b) => {
+    const offerCountMap = offerCounts.reduce((acc, b) => {
       acc[b._id.toString()] = b.count;
       return acc;
     }, {});
 
-    const formattedProducts = products.map((product) => {
-      const categoryBreadcrumb = product.categoryPath.map(c => ({
+    const formattedDemands = demands.map((demand) => {
+      const categoryBreadcrumb = demand.categoryPath.map(c => ({
         id: c._id,
         name: c.name,
         slug: c.slug,
@@ -186,28 +181,25 @@ export const getProducts = async (req, res) => {
       }));
 
       return {
-        id: product._id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        images: product.images,
-        thumbnail: product.images && product.images.length > 0 ? product.images[0] : null,
-        createdBy: product.createdBy ?? null,
-        createdAt: product.createdAt ?? null,
-        bidStart: product.bidStart ?? null,
-        bidEnd: product.bidEnd ?? null,
-        productType: product.productType ?? null,
-        deliveryCost: product.deliveryCost ?? null,
-        location: product.location ?? null,
-        phone: product.phone ?? null,
-        category: product.category ?? null,
-        condition: product.condition ?? null,
-        stock: product.stock ?? null,
-        unit: product.unit ?? null,
-        tags: product.tags ?? null,
+        id: demand._id,
+        name: demand.name,
+        description: demand.description,
+        price: demand.price,
+        images: demand.images,
+        thumbnail: demand.images && demand.images.length > 0 ? demand.images[0] : null,
+        createdBy: demand.createdBy ?? null,
+        createdAt: demand.createdAt ?? null,
+        bidEnd: demand.bidEnd ?? null,
+        location: demand.location ?? null,
+        phone: demand.phone ?? null,
+        category: demand.category ?? null,
+        condition: demand.condition ?? null,
+        quantity: demand.quantity ?? null,
+        unit: demand.unit ?? null,
+        tags: demand.tags ?? null,
         // ⚡ Both values:
-        totalBidsCached: product.totalBids ?? 0,            // denormalized
-        totalBids: bidCountMap[product._id.toString()] || 0, // normalized
+        totalOffersCached: demand.totalOffers ?? 0,            // denormalized
+        totalBids: offerCountMap[demand._id.toString()] || 0, // normalized
         categoryBreadcrumb,
       }
     });
@@ -217,7 +209,7 @@ export const getProducts = async (req, res) => {
       page,
       totalPages,
       links,
-      data: formattedProducts,
+      data: formattedDemands,
       categoryTitle: categoryName && category ? category.name : null,
     });
   } catch (error) {
@@ -227,9 +219,9 @@ export const getProducts = async (req, res) => {
 
 
 // 📌 Get Single Product
-export const getProductById = async (req, res) => {
+export const view = async (req, res) => {
   try {
-    const product = await Product.findOne({ _id: req.params.id })
+    const product = await Demand.findOne({ _id: req.params.id })
       .populate("createdBy", "_id name image email")
       .populate("category", "name slug icon")
       .populate({
@@ -266,7 +258,7 @@ export const getProductById = async (req, res) => {
       phone: product.phone ?? null,
       category: product.category ?? null,
       condition: product.condition ?? null,
-      stock: product.stock ?? null,
+      quantity: product.quantity ?? null,
       unit: product.unit ?? null,
       tags: product.tags ?? null,
       totalBids: realBidCount ?? 0,
@@ -279,7 +271,7 @@ export const getProductById = async (req, res) => {
 
 // 📌 Update Product
 // Update product + optionally replace images
-export const updateProduct = async (req, res) => {
+export const update = async (req, res) => {
   try {
     const productId = req.params.id;
     const { name, price, description } = req.body;
@@ -315,9 +307,9 @@ export const updateProduct = async (req, res) => {
 };
 
 // 📌 Delete Product
-export const deleteProduct = async (req, res) => {
+export const destroy = async (req, res) => {
   try {
-    const product = await Product.findOneAndDelete({ _id: req.params.id });
+    const product = await Demand.findOneAndDelete({ _id: req.params.id });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     product.images.forEach((img) => {
@@ -330,7 +322,7 @@ export const deleteProduct = async (req, res) => {
     res.status(200).json({
       success: true,
       status: 200,
-      message: "Product deleted successfully",
+      message: "Demand deleted successfully",
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

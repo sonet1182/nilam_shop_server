@@ -94,7 +94,7 @@ let tokenBlacklist = [];
 export const logout = (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (token) {
-    tokenBlacklist.push(token);
+    // tokenBlacklist.push(token);
   }
   res.clearCookie("token", {
     httpOnly: true,
@@ -116,7 +116,7 @@ export const verifyToken = (req, res, next) => {
   if (!token) return res.status(401).json({ message: "No token provided." });
 
   if (tokenBlacklist.includes(token)) {
-    return res.status(401).json({ message: "Token has been logged out." });
+    return res.status(401).json({ message: "Token has been logged out.", blacklist: tokenBlacklist });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {

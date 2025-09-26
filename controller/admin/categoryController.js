@@ -47,19 +47,21 @@ export const updateCategory = async (req, res) => {
     const { id } = req.params;
     const { name, parent, icon } = req.body;
 
-    const category = await Category.findByIdAndUpdate(
-      id,
-      { name, parent: parent || null, icon: icon || "🛒" },
-      { new: true }
-    );
-
+    const category = await Category.findById(id);
     if (!category) return res.status(404).json({ message: "Category not found" });
+
+    if (name) category.name = name;
+    if (parent !== undefined) category.parent = parent || null;
+    if (icon) category.icon = icon;
+
+    await category.save(); // ✅ pre("save") runs, slug auto-updates
 
     res.json(category);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // ✅ Delete Category (and children recursively)
 export const deleteCategory = async (req, res) => {

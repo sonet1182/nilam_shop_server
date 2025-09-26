@@ -9,6 +9,7 @@ import adminDashboardRoutes from './routes/admin/dashboardRoutes.js';
 import adminCategoryRoutes from './routes/admin/categoryRoutes.js';
 import authRoute from './routes/authRoute.js';
 import productRoutes from './routes/productRoutes.js';
+import demandRoutes from './routes/demandRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
@@ -202,6 +203,7 @@ app.use('/api', userRoutes);
 app.use('/api/auth', authRoute);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/demands", demandRoutes);
 
 app.use("/uploads", express.static("uploads"));
 
