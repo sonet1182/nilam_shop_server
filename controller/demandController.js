@@ -4,6 +4,7 @@ import path from "path";
 import bidModel from "../model/bidModel.js";
 import categoryModel from "../model/categoryModel.js";
 import offerModel from "../model/offerModel.js";
+import demandBidModel from "../model/demandBidModel.js";
 
 // Multer দিয়ে প্রাপ্ত images ফাইল নাম বা path গুলো req.files থেকে পাবেন
 export const create = async (req, res) => {
@@ -333,13 +334,13 @@ export const destroy = async (req, res) => {
 // Example Express route
 export const productBids = async (req, res) => {
   try {
-    const bids = await bidModel
+    const bids = await demandBidModel
       .find({ productId: req.params.id })
       .sort({ amount: -1 })
       .populate("user", "name image _id");
 
     res.json(bids);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch bids" });
+    res.status(500).json({ error: "Failed to fetch bids", error: err.message });
   }
 };
