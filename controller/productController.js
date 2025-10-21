@@ -282,34 +282,93 @@ export const getProductById = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     const productId = req.params.id;
-    const { name, price, description } = req.body;
+    const {
+      name,
+      price,
+      description,
+      bidStart,
+      bidEnd,
+      productType,
+      deliveryCost,
+      location,
+      phone,
+      category,
+      condition,
+      stock,
+      unit,
+      tags,
+      removeImages, // optional array of filenames to delete
+    } = req.body;
 
-    const product = await Product.findOne({ _id: productId });
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    // 1️⃣ Find the product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
 
-    // যদি নতুন images আসে, তাহলে পুরানো images ফাইল ডিলিট করুন (optional)
-    if (req.files && req.files.length > 0) {
-      // পুরানো images ফাইল ডিলিট করা
-      product.images.forEach((img) => {
+    // 2️⃣ Remove specific old images (if requested)
+    if (removeImages && Array.isArray(removeImages) && removeImages.length > 0) {
+      removeImages.forEach((img) => {
         const imgPath = path.join("uploads", img);
         if (fs.existsSync(imgPath)) {
           fs.unlinkSync(imgPath);
         }
       });
 
-      // নতুন images filenames সেভ করা
-      product.images = req.files.map((file) => file.filename);
+      // remove deleted images from the array
+      product.images = product.images.filter(
+        (img) => !removeImages.includes(img)
+      );
     }
 
-    // অন্য ডাটা আপডেট করা
-    if (name) product.name = name;
-    if (price) product.price = price;
-    if (description) product.description = description;
+    // 3️⃣ Add new images if uploaded
+    if (req.files && req.files.length > 0) {
+      const newImageFilenames = req.files.map((file) => file.filename);
+      product.images = [...product.images, ...newImageFilenames]; // append instead of replacing
+    }
 
+    // 4️⃣ Update other fields only if provided
+    if (name !== undefined) product.name = name;
+    if (price !== undefined) product.price = price;
+    if (description !== undefined) product.description = description;
+    if (bidStart !== undefined) product.bidStart = bidStart;
+    if (bidEnd !== undefined) product.bidEnd = bidEnd;
+    if (productType !== undefined) product.productType = productType;
+    if (deliveryCost !== undefined) product.deliveryCost = deliveryCost;
+    if (location !== undefined) product.location = location;
+    if (phone !== undefined) product.phone = phone;
+    if (category !== undefined) {
+      product.category = category;
+      const buildCategoryPath = async (catId) => {
+        const cat = await categoryModel.findById(catId);
+        if (!cat) return [];
+        if (!cat.parent) return [cat._id]; // root category
+        const parentPath = await buildCategoryPath(cat.parent);
+        return [...parentPath, cat._id];
+      };
+
+      const categoryPath = await buildCategoryPath(category);
+      product.categoryPath = categoryPath;
+    }
+    if (condition !== undefined) product.condition = condition;
+    if (stock !== undefined) product.stock = stock;
+    if (unit !== undefined) product.unit = unit;
+
+    if (tags !== undefined) {
+      product.tags = Array.isArray(tags)
+        ? tags
+        : tags.split(",").map((t) => t.trim());
+    }
+
+    // 5️⃣ Save the updated product
     const updatedProduct = await product.save();
 
-    res.status(200).json({ message: "Product updated", product: updatedProduct });
+    res.status(200).json({
+      message: "✅ Product updated successfully",
+      product: updatedProduct,
+    });
   } catch (error) {
+    console.error("❌ Error updating product:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -351,3 +410,56 @@ export const productBids = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch bids" });
   }
 };
+
+export const updateProduct2 = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      price,
+      description,
+      bidStart,
+      bidEnd,
+      productType,
+      deliveryCost,
+      location,
+      phone,
+      category,
+      condition,
+      stock,
+      unit,
+      tags,
+      existingImages = [],
+    } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) return res.status(404).json({ message: "Product not found." });
+
+    const newImages = req.files?.map((f) => f.filename) || [];
+    const finalImages = [...existingImages, ...newImages];
+
+    product.name = name;
+    product.price = price;
+    product.description = description;
+    product.bidStart = new Date(bidStart);
+    product.bidEnd = new Date(bidEnd);
+    product.productType = productType;
+    product.deliveryCost = deliveryCost || 0;
+    product.location = location || "";
+    product.phone = phone || "";
+    product.category = category;
+    product.condition = condition;
+    product.stock = parseInt(stock) || 0;
+    product.unit = unit;
+    product.tags = tags ? tags.split(",") : [];
+    product.images = finalImages;
+
+    await product.save();
+
+    res.json({ message: "Product updated successfully.", product });
+  } catch (error) {
+    console.error("Error updating product:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+

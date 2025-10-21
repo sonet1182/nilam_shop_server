@@ -39,7 +39,7 @@ router.get("/:id/bids", productBids);
 router.use(verifyToken);
 router.get("/shop/mine", getProducts);
 router.post("/", upload.array("images", 5), createProduct);
-router.put("/:id", updateProduct);
+router.put("/:id", upload.array("images", 5), updateProduct);
 router.delete("/:id", deleteProduct);
 
 export default router;
