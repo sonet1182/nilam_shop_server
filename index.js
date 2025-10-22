@@ -38,7 +38,7 @@ socketHandler(io);
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+// app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
 // Routes
 app.get("/", (req, res) => res.send("Server is running 🚀"));
