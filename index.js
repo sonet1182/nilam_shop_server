@@ -25,12 +25,6 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true,
-}));
-
 app.set("io", io);
 
 // Initialize socket handler
@@ -38,6 +32,14 @@ socketHandler(io);
 
 // Middleware
 app.use(bodyParser.json());
+app.use(cors({
+  origin: [
+    "http://localhost:3000",                  // local frontend
+    "https://nilam-shop.onrender.com/"      // deployed frontend
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true,
+}));
 // app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
 // Routes
