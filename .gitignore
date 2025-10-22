@@ -1,4 +1,4 @@
 # .env
 .env.backup
 node_modules/
-uploads/
+# uploads/

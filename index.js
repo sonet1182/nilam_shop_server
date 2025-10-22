@@ -58,6 +58,7 @@ app.use("/api/admin/categories", isAdmin, adminCategoryRoutes);
 // MongoDB connection and server start
 const PORT = process.env.PORT || 7000;
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/admin';
+// const MONGO_URL = process.env.MONGO_URL;
 
 mongoose.connect(MONGO_URL)
     .then(() => {
