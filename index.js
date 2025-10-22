@@ -23,7 +23,16 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "http://localhost:3000",
+      "https://nilam-shop.onrender.com"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 app.set("io", io);
 
@@ -33,7 +42,7 @@ socketHandler(io);
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     if (!origin) return callback(null, true); // allow Postman/server requests
     const allowedOrigins = [
       "http://localhost:3000",
@@ -58,8 +67,8 @@ app.use('/api/auth', authRoute);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/demands", (req, res, next) => {
-    req.io = io; // attach io to req object
-    next();
+  req.io = io; // attach io to req object
+  next();
 }, demandRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/conversations", conversationRoutes);
@@ -76,10 +85,10 @@ const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/admin';
 // const MONGO_URL = process.env.MONGO_URL;
 
 mongoose.connect(MONGO_URL)
-    .then(() => {
-        console.log('MongoDB connected');
-        server.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
-        });
-    })
-    .catch((error) => console.error('MongoDB connection error:', error));
+  .then(() => {
+    console.log('MongoDB connected');
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((error) => console.error('MongoDB connection error:', error));
