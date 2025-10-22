@@ -25,14 +25,26 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+const allowedOrigins = [
+  "http://localhost:3000",            // local frontend
+  "https://nilam-shop.onrender.com"   // deployed frontend
+];
+
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    process.env.CLIENT_URL,
-  ],
+  origin: function(origin, callback) {
+    // allow requests with no origin (like Postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS policy: Origin not allowed"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true,
+  credentials: true, // important if using cookies or Authorization headers
 }));
+
 
 app.set("io", io);
 
