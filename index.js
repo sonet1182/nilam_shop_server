@@ -33,12 +33,19 @@ socketHandler(io);
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-  origin: [
-    "http://localhost:3000",                  // local frontend
-    "https://nilam-shop.onrender.com/"      // deployed frontend
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true,
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // allow Postman/server requests
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "https://nilam-shop.onrender.com"
+    ];
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, // must match frontend Axios
 }));
 // app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
